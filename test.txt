@@ -1,0 +1,131 @@
+#!/bin/bash
+
+#adding colour in the string
+White='\033[0;37m'
+Purple='\033[0;35m'
+Cyan='\033{0;36m'
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+
+
+# Function to display top 10 applications consuming the most CPU and memory
+top_apps() {
+    echo  "Top 10 applications consuming the most"
+    echo "CPU "
+    top -b -o +%CPU | head -n 17 | tail -n 11
+    echo ""
+    echo "Memory"
+    top -b -o +%MEM | head -n 17 | tail -n 11
+}
+
+# Function to display network statistics
+network_stats() {
+    echo  "Network statistics:"
+    echo ""
+    echo "Concurrent connections estabilished: $(netstat -an | grep ESTABLISHED | wc -l)"
+    echo "Packets dropped in ENX0: $(netstat -i | awk '/enX0/ {print $4}') and lo $(netstat -i | awk '/lo/ {print $4}')"
+    echo "Packet recived in MB: $(ip -s link show enX0 | awk '/RX:/ {getline; print $1/1024/1024 " MB"}')"
+    echo "Packet transfer out in MB: $(ip -s link show enX0 | awk '/TX:/ {getline; print $1/1024/1024 " MB"}')"
+    echo ""
+}
+
+# Function to display disk space usage by mounted partitions
+disk_usage() {
+    echo -e "${White}Disk space usage by mounted partitions:"
+    df -h | awk '$5 >= 80 {print "\033[31m" $0 "\033[0m"} $5 < 80'
+    echo ""
+}
+
+# Function to show system load average and CPU usage breakdown
+load_average() {
+    echo -e "${Purple}System load average and CPU usage breakdown:"
+    uptime| mpstat | grep -A 5 "%idle"
+    echo ""
+}
+
+# Function to display memory usage
+memory_usage() {
+    echo "Memory usage:"
+    echo ""
+    free -m
+    echo ""
+}
+
+# Function to display number of active processes and top 5 processes
+active_processes() {
+    echo "Number of active processes: $(ps aux | wc -l)"
+    echo "Top 5 processes by CPU and memory usage:"
+    top -b -o +%CPU | head -n 12| tail -6
+    echo ""
+}
+
+# Function to monitor status of services
+service_status() {
+    echo "Service status:"
+    for service in ssh nginx apache2 iptables; do
+            if systemctl is-active --quiet $service; then
+                    echo -e "${GREEN}$service is running"
+             else
+                     echo -e "${RED}$service is not running"
+             fi
+    done
+    echo ""
+}
+
+# Main script logic
+while true;do
+        echo "Welcome to the Monitoring Sciprt"
+        echo ""
+        echo "1)Top 10 application consuming cpu and memory"
+        echo "2)Network Status "
+        echo "3)Disk usage"
+        echo "4)Load on system"
+        echo "5)Memory usage"
+        echo "6)Active processes"
+        echo "7)Service status"
+        echo "8)exit"
+        echo ""
+        echo -e "Select an option:"
+        read opt
+        case $opt in
+                1) clear
+                echo -e "${RED}You are seeing Top 10 application/service using memory and cpu"
+                echo -e "${White}"
+                top_apps ;;
+
+                2) clear
+                echo -e "${GREEN}You are seeing Network status "
+                echo -e "${White}"
+                network_stats ;;
+
+                3) clear
+                echo -e "${YELLOW}You are seeing Disk Usage"
+                echo -e "${White}"
+                disk_usage ;;
+
+                4) clear
+                echo -e "${RED}You are seeing System load"
+                echo -e "${White}"
+                load_average ;;
+
+                5) clear
+                echo -e "${White}You are seeing memory usage"
+                memory_usage ;;
+
+                6) clear
+                echo -e "${GREEN}You are seeing active processes"
+                echo -e "${White}"
+                active_processes ;;
+
+                7) clear
+                echo -e "You are seeing Service status"
+                service_status ;;
+                8) echo "Exit"; exit 1 ;;
+
+        esac
+done
+
+# Refresh every second
+sleep 1
+exec $0 "$@"

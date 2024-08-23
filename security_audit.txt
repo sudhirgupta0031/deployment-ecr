@@ -1,0 +1,170 @@
+#!/bin/bash
+
+# Function to check User and Group Audits
+User_Group_Audit() {
+        echo "Checking Groups:"
+        cut -d: -f1 /etc/group # here we are listing the user from the passwd file in directoy etc
+        echo ""
+        echo "Checking for users:"
+        cd /etc
+        cut -d: -f1 /etc/passwd
+        echo ""
+        echo "Checking Users with UID 0"
+        sudo awk -F: '($3 == 0) {print}' /etc/passwd         #here we are checking who have root access with UID 0
+        echo ""
+        echo "Check for user without password"
+        echo""
+        sudo awk -F: '($2 == "" || $2 == "*") {print $1}' /etc/shadow   #here we are seeing the user not having password
+        cd ..
+}
+
+#Function to check file and directory permission
+file_directory_permission(){
+        echo ""
+        echo "Scanning for world-writable files and directories:"
+        sudo find / -xdev -type d \( -perm -0002 -a ! -perm -1000 \) -print  #here we are finding the directory which are writeable
+        sudo find / -xdev -type f \( -perm -0002 \) -print             #here we doing the same for files
+        echo ""
+        echo "Checking .ssh directories for secure permissions:"
+        sudo find /home -type d -name ".ssh" -exec chmod 700 {} \;           #here we are changing the permssion if any ssh files found
+        sudo find /home -type f -name "authorized_keys" -exec chmod 600 {} \;
+        echo ""
+        echo "Reporting files with SUID or SGID bits set:"
+        sudo find / -perm /6000 -type f -exec ls -ld {} \;
+
+}
+
+Services_audit(){
+        echo "Performing service audits..."
+        echo "Listing all running services:"
+        sudo systemctl list-units --type=service --state=running
+        echo ""
+        echo "Ensuring critical services are running:"
+        echo""
+        for service in ssh nginx iptables; do
+                if systemctl is-active --quiet $service; then
+                        echo "${service} service is running "
+                else
+                        echo ""
+                        echo "${service} service is not running"
+                fi
+        done
+        echo ""
+        echo "Checking for services listening on non-standard ports:"
+        sudo netstat -tuln | grep -v ':22\|:80\|:443'
+
+}
+Firewall_network(){
+        echo "Checking firewall status:"
+        sudo ufw status
+
+        # Check for open ports and associated services
+        echo "Open ports for assocaited services"
+        netstat -tuln
+
+        # Check for IP forwarding
+        fip4=$(sudo sysctl net.ipv4.ip_forward | awk '{print $3}')
+        fip6=$(sudo sysctl net.ipv6.ip_forward | awk '{print $3}')
+
+        if [ $fip4 -eq 0 ] && [ $fip6 -eq 0 ]; then
+        echo "IP forwarding is not there"
+        else
+        echo "IP forwarding is there"
+        fi
+
+}
+
+IP_Check(){
+        ip -o -4 addr list | awk '{print $4}'
+        ip4=$(ip -o -4 addr list | awk '{print $4}' | awk -F . '{print $1}')
+        echo "$ip4"
+
+        for i in $ip4; do
+        echo "$i"
+        if [ $i >192 ]; then
+                echo "It is a public IP"
+        else
+                echo "Private IP"
+        fi
+        done
+
+        #vl= ip -o -4 addr list | awk '{print $4}' | awk -F. '{print $1}'|wc -l
+        ip -o -6 addr list | awk '{print $4}'
+
+}
+
+secuirty(){
+        echo "Checking for security updates..."
+
+# Check for security updates
+       sudo apt-get update
+       sudo apt-get upgrade -s | grep -i security
+
+}
+log_monitor(){
+        echo "Checking for suspicious log entries..."
+
+# Check for suspicious log entries
+        grep -E "Failed|error" /var/log/syslog
+}
+
+while true; do
+        echo""
+        echo "Welcome to security audit"
+        echo "1) User and Group"
+        echo "2) File directory permission"
+        echo "3) Service audit"
+        echo "4)Firewall network"
+        echo "5) IP Check "
+        echo "6) Security Update"
+        echo "7) log monitor"
+        echo "8) Exit"
+        echo ""
+        read -p "Enter your choice: " choice
+
+        case $choice in
+                1)
+                clear
+                echo "You are seeing User and Group Audit"
+                User_Group_Audit
+                ;;
+                2)
+                clear
+                echo "You are seeinf files and directory Audit"
+                file_directory_permission
+                ;;
+
+                3)
+                clear
+                echo "You are seeing Service "
+                Services_audit
+                ;;
+                4)
+                clear
+                echo "You are seeing Firewall network info"
+                Firewall_network
+                ;;
+                5)
+                clear
+                echo " You are seeing whether IP is public or private"
+                IP_Check
+                ;;
+                6)
+                clear
+                echo "Secuirty Update info"
+                secuirty
+                ;;
+                7)
+                clear
+                echo " You seeing log monitor "
+                log_monitor
+                ;;
+                8)
+                echo "Exit"; exit 1 ;;
+        esac
+done
+
+# Refresh every second
+sleep 1
+exec $0 "$@"
+
