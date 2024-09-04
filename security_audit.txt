@@ -63,9 +63,10 @@ Firewall_network(){
         netstat -tuln
 
         # Check for IP forwarding
-        fip4=$(sudo sysctl net.ipv4.ip_forward | awk '{print $3}')
-        fip6=$(sudo sysctl net.ipv6.ip_forward | awk '{print $3}')
-
+        #fip4=$(sudo sysctl net.ipv4.ip_forward | awk '{print $3}')
+        #fip6=$(sudo sysctl net.ipv6.ip_forward | awk '{print $3}')
+        fip4=$(cat /proc/sys/net/ipv4/conf/all/forwarding)
+        fip6=$(cat /proc/sys/net/ipv6/conf/all/forwarding)
         if [ $fip4 -eq 0 ] && [ $fip6 -eq 0 ]; then
         echo "IP forwarding is not there"
         else
@@ -105,7 +106,7 @@ log_monitor(){
         echo "Checking for suspicious log entries..."
 
 # Check for suspicious log entries
-        grep -E "Failed|error" /var/log/syslog
+        grep --color=auto -E "Failed|error" /var/log/syslog
 }
 
 while true; do
